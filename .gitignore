@@ -2,3 +2,5 @@ node_modules
 dist
 .DS_Store
 *.local
+rehab_exercise_images/
+*.zip
