@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
-  base: '/rehab-assistant/',  // GitHub Pages 仓库名
+  base: './',
   build: {
     outDir: 'dist',
     assetsDir: 'assets'
