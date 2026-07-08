@@ -68,6 +68,7 @@
               >
               <div v-if="!imageLoaded[exercise.id]" class="image-placeholder">
                 <span class="placeholder-icon">🏃</span>
+                <span class="placeholder-text">正在加载动作图示...</span>
               </div>
             </div>
             <div class="exercise-info">
@@ -166,7 +167,7 @@ onMounted(async () => {
     })
   }
 
-  // 短暂延迟后显示内容（不需要等所有图片加载）
+  // 短暂延迟后显示内容
   await new Promise(resolve => setTimeout(resolve, 1500))
   
   loading.value = false
@@ -343,6 +344,7 @@ const goHome = () => {
   height: 200px;
   background: #f0f3ff;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
@@ -368,6 +370,7 @@ const goHome = () => {
   right: 0;
   bottom: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f0f3ff 0%, #e8ecff 100%);
@@ -375,6 +378,13 @@ const goHome = () => {
 
 .placeholder-icon {
   font-size: 48px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.placeholder-text {
+  font-size: 14px;
+  color: #667eea;
+  margin-top: 8px;
   animation: pulse 1.5s ease-in-out infinite;
 }
 
