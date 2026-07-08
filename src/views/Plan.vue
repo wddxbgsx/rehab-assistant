@@ -3,7 +3,10 @@
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">
       <div class="loading-spinner"></div>
-      <p>正在生成你的训练计划...</p>
+      <p class="loading-title">{{ loadingText }}</p>
+      <div class="loading-tips">
+        <p>💡 {{ currentTip }}</p>
+      </div>
     </div>
 
     <!-- 计划内容 -->
@@ -61,7 +64,6 @@
               <img 
                 :src="exercise.image" 
                 :alt="exercise.name"
-                loading="lazy"
                 :class="{ loaded: imageLoaded[exercise.id] }"
                 @load="onImageLoad(exercise.id)"
                 @error="handleImageError"
@@ -132,9 +134,23 @@ import { getInjuryById } from '../data/injuries.js'
 
 const router = useRouter()
 const loading = ref(true)
+const loadingText = ref('正在分析你的身体状况...')
+const currentTip = ref('')
 const plan = ref(null)
 const injuryName = ref('')
 const imageLoaded = reactive({})
+
+// 健康小贴士
+const tips = [
+  '坚持训练，效果会逐渐显现',
+  '训练前适当热身可以减少受伤风险',
+  '保持良好的作息习惯有助于恢复',
+  '训练后适当拉伸可以缓解肌肉酸痛',
+  '循序渐进，不要急于求成',
+  '保持积极的心态对恢复很重要',
+  '充足的睡眠是恢复的关键',
+  '多喝水，保持身体水分充足'
+]
 
 onMounted(async () => {
   const profileStr = localStorage.getItem('userProfile')
@@ -167,9 +183,37 @@ onMounted(async () => {
     })
   }
 
-  // 短暂延迟后显示内容
-  await new Promise(resolve => setTimeout(resolve, 1500))
-  
+  // 预加载首屏图片（第一个阶段的前2张）
+  const firstPhase = plan.value.phases[0]
+  if (firstPhase && firstPhase.exercises.length > 0) {
+    const preloadPromises = firstPhase.exercises.slice(0, 2).map(exercise => {
+      return new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          imageLoaded[exercise.id] = true
+          resolve()
+        }
+        img.onerror = resolve
+        img.src = exercise.image
+      })
+    })
+    await Promise.all(preloadPromises)
+  }
+
+  // 显示加载步骤动画
+  const steps = [
+    { text: '正在分析你的身体状况...', duration: 1200 },
+    { text: '正在匹配适合的训练动作...', duration: 1000 },
+    { text: '正在生成个性化训练计划...', duration: 1200 },
+    { text: '正在准备训练动作图片...', duration: 800 }
+  ]
+
+  for (let i = 0; i < steps.length; i++) {
+    loadingText.value = steps[i].text
+    currentTip.value = tips[Math.floor(Math.random() * tips.length)]
+    await new Promise(resolve => setTimeout(resolve, steps[i].duration))
+  }
+
   loading.value = false
 })
 
@@ -208,6 +252,7 @@ const goHome = () => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  padding: 20px;
 }
 
 .loading-spinner {
@@ -223,10 +268,27 @@ const goHome = () => {
   to { transform: rotate(360deg); }
 }
 
-.loading p {
+.loading-title {
   margin-top: 20px;
-  color: #666;
-  font-size: 16px;
+  color: #333;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.loading-tips {
+  margin-top: 30px;
+  padding: 16px 24px;
+  background: #f0f3ff;
+  border-radius: 12px;
+  max-width: 300px;
+}
+
+.loading-tips p {
+  margin: 0;
+  color: #667eea;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .plan-header {
