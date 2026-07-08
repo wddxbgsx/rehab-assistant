@@ -152,6 +152,25 @@ const tips = [
   '多喝水，保持身体水分充足'
 ]
 
+// 按顺序加载图片
+const loadImagesSequentially = async (exercises) => {
+  for (const exercise of exercises) {
+    await new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        imageLoaded[exercise.id] = true
+        // 短暂延迟，让用户看到依次加载的效果
+        setTimeout(resolve, 150)
+      }
+      img.onerror = () => {
+        imageLoaded[exercise.id] = true
+        resolve()
+      }
+      img.src = exercise.image
+    })
+  }
+}
+
 onMounted(async () => {
   const profileStr = localStorage.getItem('userProfile')
   if (!profileStr) {
@@ -175,29 +194,27 @@ onMounted(async () => {
   }
 
   // 初始化图片加载状态
+  const allExercises = []
   if (plan.value && plan.value.phases) {
     plan.value.phases.forEach(phase => {
       phase.exercises.forEach(exercise => {
         imageLoaded[exercise.id] = false
+        allExercises.push(exercise)
       })
     })
   }
 
-  // 预加载首屏图片（第一个阶段的前2张）
-  const firstPhase = plan.value.phases[0]
-  if (firstPhase && firstPhase.exercises.length > 0) {
-    const preloadPromises = firstPhase.exercises.slice(0, 2).map(exercise => {
-      return new Promise((resolve) => {
-        const img = new Image()
-        img.onload = () => {
-          imageLoaded[exercise.id] = true
-          resolve()
-        }
-        img.onerror = resolve
-        img.src = exercise.image
-      })
+  // 先预加载第一张图片
+  if (allExercises.length > 0) {
+    await new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        imageLoaded[allExercises[0].id] = true
+        resolve()
+      }
+      img.onerror = resolve
+      img.src = allExercises[0].image
     })
-    await Promise.all(preloadPromises)
   }
 
   // 显示加载步骤动画
@@ -215,6 +232,9 @@ onMounted(async () => {
   }
 
   loading.value = false
+
+  // 依次加载剩余图片
+  loadImagesSequentially(allExercises.slice(1))
 })
 
 const onImageLoad = (id) => {
