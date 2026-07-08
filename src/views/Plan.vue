@@ -3,7 +3,7 @@
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">
       <div class="loading-spinner"></div>
-      <p>正在生成你的训练计划...</p>
+      <p>{{ loadingText }}</p>
     </div>
 
     <!-- 计划内容 -->
@@ -58,7 +58,16 @@
         <div class="exercises">
           <div v-for="exercise in phase.exercises" :key="exercise.id" class="exercise-card">
             <div class="exercise-image">
-              <img :src="exercise.image" :alt="exercise.name" @error="handleImageError">
+              <img 
+                :src="exercise.image" 
+                :alt="exercise.name"
+                :class="{ loaded: imageLoaded[exercise.id] }"
+                @load="onImageLoad(exercise.id)"
+                @error="handleImageError"
+              >
+              <div v-if="!imageLoaded[exercise.id]" class="image-placeholder">
+                <span class="placeholder-icon">🏃</span>
+              </div>
             </div>
             <div class="exercise-info">
               <h3>{{ exercise.name }}</h3>
@@ -114,17 +123,27 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { generatePlan } from '../utils/planGenerator.js'
 import { getInjuryById } from '../data/injuries.js'
 
 const router = useRouter()
 const loading = ref(true)
+const loadingText = ref('正在分析你的身体状况...')
 const plan = ref(null)
 const injuryName = ref('')
+const imageLoaded = reactive({})
 
-onMounted(() => {
+// 加载步骤
+const loadingSteps = [
+  { text: '正在分析你的身体状况...', duration: 800 },
+  { text: '正在匹配适合的训练动作...', duration: 1000 },
+  { text: '正在生成个性化训练计划...', duration: 1200 },
+  { text: '正在准备训练动作图片...', duration: 1000 }
+]
+
+onMounted(async () => {
   const profileStr = localStorage.getItem('userProfile')
   if (!profileStr) {
     loading.value = false
@@ -137,16 +156,56 @@ onMounted(() => {
   const injury = getInjuryById(profile.injuryId)
   injuryName.value = injury ? injury.name : profile.injuryId
 
-  // 模拟加载延迟
-  setTimeout(() => {
-    try {
-      plan.value = generatePlan(profile)
-    } catch (error) {
-      console.error('生成计划失败:', error)
-    }
+  // 生成计划
+  try {
+    plan.value = generatePlan(profile)
+  } catch (error) {
+    console.error('生成计划失败:', error)
     loading.value = false
-  }, 1000)
+    return
+  }
+
+  // 预加载所有图片
+  const allImages = []
+  if (plan.value && plan.value.phases) {
+    plan.value.phases.forEach(phase => {
+      phase.exercises.forEach(exercise => {
+        allImages.push(exercise.image)
+        imageLoaded[exercise.id] = false
+      })
+    })
+  }
+
+  // 预加载图片
+  const preloadImages = allImages.map(src => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = resolve
+      img.onerror = resolve
+      img.src = src
+    })
+  })
+
+  // 执行加载步骤动画
+  for (let i = 0; i < loadingSteps.length; i++) {
+    loadingText.value = loadingSteps[i].text
+    await new Promise(resolve => setTimeout(resolve, loadingSteps[i].duration))
+  }
+
+  // 等待所有图片预加载完成
+  await Promise.all(preloadImages)
+
+  // 标记所有图片为已加载
+  Object.keys(imageLoaded).forEach(id => {
+    imageLoaded[id] = true
+  })
+
+  loading.value = false
 })
+
+const onImageLoad = (id) => {
+  imageLoaded[id] = true
+}
 
 const handleImageError = (e) => {
   // 图片加载失败时显示占位图
@@ -198,6 +257,7 @@ const goHome = () => {
 .loading p {
   margin-top: 20px;
   color: #666;
+  font-size: 16px;
 }
 
 .plan-header {
@@ -317,12 +377,42 @@ const goHome = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .exercise-image img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.exercise-image img.loaded {
+  opacity: 1;
+}
+
+.image-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0f3ff 0%, #e8ecff 100%);
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
 }
 
 .exercise-info {
