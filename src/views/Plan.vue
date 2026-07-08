@@ -3,7 +3,7 @@
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">
       <div class="loading-spinner"></div>
-      <p>{{ loadingText }}</p>
+      <p>正在生成你的训练计划...</p>
     </div>
 
     <!-- 计划内容 -->
@@ -61,6 +61,7 @@
               <img 
                 :src="exercise.image" 
                 :alt="exercise.name"
+                loading="lazy"
                 :class="{ loaded: imageLoaded[exercise.id] }"
                 @load="onImageLoad(exercise.id)"
                 @error="handleImageError"
@@ -130,18 +131,9 @@ import { getInjuryById } from '../data/injuries.js'
 
 const router = useRouter()
 const loading = ref(true)
-const loadingText = ref('正在分析你的身体状况...')
 const plan = ref(null)
 const injuryName = ref('')
 const imageLoaded = reactive({})
-
-// 加载步骤
-const loadingSteps = [
-  { text: '正在分析你的身体状况...', duration: 800 },
-  { text: '正在匹配适合的训练动作...', duration: 1000 },
-  { text: '正在生成个性化训练计划...', duration: 1200 },
-  { text: '正在准备训练动作图片...', duration: 1000 }
-]
 
 onMounted(async () => {
   const profileStr = localStorage.getItem('userProfile')
@@ -165,41 +157,18 @@ onMounted(async () => {
     return
   }
 
-  // 预加载所有图片
-  const allImages = []
+  // 初始化图片加载状态
   if (plan.value && plan.value.phases) {
     plan.value.phases.forEach(phase => {
       phase.exercises.forEach(exercise => {
-        allImages.push(exercise.image)
         imageLoaded[exercise.id] = false
       })
     })
   }
 
-  // 预加载图片
-  const preloadImages = allImages.map(src => {
-    return new Promise((resolve) => {
-      const img = new Image()
-      img.onload = resolve
-      img.onerror = resolve
-      img.src = src
-    })
-  })
-
-  // 执行加载步骤动画
-  for (let i = 0; i < loadingSteps.length; i++) {
-    loadingText.value = loadingSteps[i].text
-    await new Promise(resolve => setTimeout(resolve, loadingSteps[i].duration))
-  }
-
-  // 等待所有图片预加载完成
-  await Promise.all(preloadImages)
-
-  // 标记所有图片为已加载
-  Object.keys(imageLoaded).forEach(id => {
-    imageLoaded[id] = true
-  })
-
+  // 短暂延迟后显示内容（不需要等所有图片加载）
+  await new Promise(resolve => setTimeout(resolve, 1500))
+  
   loading.value = false
 })
 
@@ -208,7 +177,6 @@ const onImageLoad = (id) => {
 }
 
 const handleImageError = (e) => {
-  // 图片加载失败时显示占位图
   e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mHPC90ZXh0Pjwvc3ZnPg=='
 }
 
