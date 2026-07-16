@@ -18,6 +18,15 @@
       开始评估
     </button>
 
+    <div class="account-choice">
+      <strong>注册登录为可选项</strong>
+      <p>登录后可保存并查看以前的训练计划；不注册也能使用，但每次需要重新评估。</p>
+      <div class="choice-actions">
+        <button @click="$router.push('/account')">登录 / 注册</button>
+        <button v-if="authState.signedIn" @click="$router.push('/plans')">我的计划</button>
+      </div>
+    </div>
+
     <div class="features">
       <div class="feature">
         <span class="feature-icon">🎯</span>
@@ -37,6 +46,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import { authState } from '../services/auth.js'
 
 const router = useRouter()
 
@@ -139,6 +149,11 @@ h1 {
   display: flex;
   gap: 30px;
 }
+
+.account-choice { max-width: 400px; width: 100%; margin: -20px 0 30px; padding: 15px; border-radius: 12px; background: rgba(255,255,255,.16); color: white; text-align: center; }
+.account-choice p { margin: 6px 0 12px; font-size: 13px; line-height: 1.6; }
+.choice-actions { display: flex; justify-content: center; gap: 10px; }
+.choice-actions button { border: 1px solid white; background: transparent; color: white; padding: 8px 14px; border-radius: 18px; cursor: pointer; }
 
 .feature {
   display: flex;

@@ -1,0 +1,17 @@
+name = "rehab-assistant-api"
+main = "worker/index.js"
+compatibility_date = "2026-07-16"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+FRONTEND_ORIGINS = "http://localhost:5173,https://wddxbgsx.github.io"
+LLM_BASE_URL = "https://ark.cn-beijing.volces.com/api/coding/v3"
+LLM_MODEL = "doubao-seed-2.0-lite"
+CLERK_PUBLISHABLE_KEY = "pk_test_cnVsaW5nLXN3aW5lLTg5LmNsZXJrLmFjY291bnRzLmRldiQ"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rehab-assistant-db"
+database_id = "7883e4aa-1acf-410d-bfe6-1064f1f7462c"
+
+# LLM_API_KEY 和 CLERK_SECRET_KEY 必须通过 wrangler secret put 设置，不能写在本文件中。

@@ -41,6 +41,16 @@
         <p>{{ plan.summary }}</p>
       </div>
 
+      <div v-if="plan.shouldSeekCare" class="care-warning">
+        <strong>⚠️ 建议优先就医评估</strong>
+        <p>根据你填写的情况，当前不适合自行增加训练强度。以下内容仅作轻柔活动参考，如症状明显或持续加重请及时就医。</p>
+      </div>
+
+      <div v-if="plan.safetyNotes?.length" class="safety-notes">
+        <h3>安全提醒</h3>
+        <ul><li v-for="note in plan.safetyNotes" :key="note">{{ note }}</li></ul>
+      </div>
+
       <!-- 所需物品 -->
       <div class="equipment">
         <h3>所需物品</h3>
@@ -59,11 +69,16 @@
         </h2>
         
         <div class="exercises">
-          <div v-for="exercise in phase.exercises" :key="exercise.id" class="exercise-card">
+          <div v-for="(exercise, exerciseIndex) in phase.exercises" :key="exercise.id" class="exercise-card">
             <div class="exercise-image">
               <img 
                 :src="exercise.image" 
                 :alt="exercise.name"
+                :loading="index === 0 && exerciseIndex === 0 ? 'eager' : 'lazy'"
+                :fetchpriority="index === 0 && exerciseIndex === 0 ? 'high' : 'auto'"
+                decoding="async"
+                width="400"
+                height="224"
                 :class="{ loaded: imageLoaded[exercise.id] }"
                 @load="onImageLoad(exercise.id)"
                 @error="handleImageError"
@@ -76,6 +91,7 @@
             <div class="exercise-info">
               <h3>{{ exercise.name }}</h3>
               <p class="exercise-desc">{{ exercise.description }}</p>
+              <p v-if="exercise.reason" class="exercise-reason"><strong>选择理由：</strong>{{ exercise.reason }}</p>
               <div class="exercise-params">
                 <span v-if="exercise.sets">{{ exercise.sets }}组</span>
                 <span v-if="exercise.reps">× {{ exercise.reps }}</span>
@@ -120,7 +136,7 @@
 
     <!-- 错误状态 -->
     <div v-else class="error">
-      <p>无法生成训练计划，请重新评估。</p>
+      <p>{{ errorMessage || '无法生成训练计划，请重新评估。' }}</p>
       <button class="btn btn-primary" @click="goHome">返回首页</button>
     </div>
   </div>
@@ -129,8 +145,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { generatePlan } from '../utils/planGenerator.js'
 import { getInjuryById } from '../data/injuries.js'
+import { generateAiPlan, getSavedPlan } from '../services/api.js'
+import { authState } from '../services/auth.js'
 
 const router = useRouter()
 const loading = ref(true)
@@ -139,6 +156,7 @@ const currentTip = ref('')
 const plan = ref(null)
 const injuryName = ref('')
 const imageLoaded = reactive({})
+const errorMessage = ref('')
 
 // 健康小贴士
 const tips = [
@@ -152,43 +170,38 @@ const tips = [
   '多喝水，保持身体水分充足'
 ]
 
-// 按顺序加载图片
-const loadImagesSequentially = async (exercises) => {
-  for (const exercise of exercises) {
-    await new Promise((resolve) => {
-      const img = new Image()
-      img.onload = () => {
-        imageLoaded[exercise.id] = true
-        // 短暂延迟，让用户看到依次加载的效果
-        setTimeout(resolve, 150)
-      }
-      img.onerror = () => {
-        imageLoaded[exercise.id] = true
-        resolve()
-      }
-      img.src = exercise.image
-    })
-  }
-}
-
 onMounted(async () => {
+  const savedPlanId = router.currentRoute.value.query.id
   const profileStr = localStorage.getItem('userProfile')
-  if (!profileStr) {
+  if (!profileStr && !savedPlanId) {
     loading.value = false
     return
   }
 
-  const profile = JSON.parse(profileStr)
-  
-  // 获取损伤名称
-  const injury = getInjuryById(profile.injuryId)
-  injuryName.value = injury ? injury.name : profile.injuryId
-
-  // 生成计划
   try {
-    plan.value = generatePlan(profile)
+    loadingText.value = savedPlanId ? '正在读取历史训练计划...' : 'AI 正在分析你的情况并从动作库中选择动作...'
+    const cachedGuestPlan = !savedPlanId ? sessionStorage.getItem('guestPlan') : null
+    if (savedPlanId) {
+      const result = await getSavedPlan(savedPlanId)
+      plan.value = result.plan
+      const injury = getInjuryById(result.profile?.injuryId)
+      injuryName.value = injury?.name || result.profile?.injuryId || '历史评估'
+    } else if (cachedGuestPlan && !authState.signedIn) {
+      const profile = JSON.parse(profileStr)
+      const injury = getInjuryById(profile.injuryId)
+      injuryName.value = injury ? injury.name : profile.injuryId
+      plan.value = JSON.parse(cachedGuestPlan)
+    } else {
+      const profile = JSON.parse(profileStr)
+      const injury = getInjuryById(profile.injuryId)
+      injuryName.value = injury ? injury.name : profile.injuryId
+      const result = await generateAiPlan(profile)
+      plan.value = result.plan
+      if (!authState.signedIn) sessionStorage.setItem('guestPlan', JSON.stringify(plan.value))
+    }
   } catch (error) {
     console.error('生成计划失败:', error)
+    errorMessage.value = error.message
     loading.value = false
     return
   }
@@ -204,37 +217,8 @@ onMounted(async () => {
     })
   }
 
-  // 先预加载第一张图片
-  if (allExercises.length > 0) {
-    await new Promise((resolve) => {
-      const img = new Image()
-      img.onload = () => {
-        imageLoaded[allExercises[0].id] = true
-        resolve()
-      }
-      img.onerror = resolve
-      img.src = allExercises[0].image
-    })
-  }
-
-  // 显示加载步骤动画
-  const steps = [
-    { text: '正在分析你的身体状况...', duration: 1200 },
-    { text: '正在匹配适合的训练动作...', duration: 1000 },
-    { text: '正在生成个性化训练计划...', duration: 1200 },
-    { text: '正在准备训练动作图片...', duration: 800 }
-  ]
-
-  for (let i = 0; i < steps.length; i++) {
-    loadingText.value = steps[i].text
-    currentTip.value = tips[Math.floor(Math.random() * tips.length)]
-    await new Promise(resolve => setTimeout(resolve, steps[i].duration))
-  }
-
+  currentTip.value = tips[Math.floor(Math.random() * tips.length)]
   loading.value = false
-
-  // 依次加载剩余图片
-  loadImagesSequentially(allExercises.slice(1))
 })
 
 const onImageLoad = (id) => {
@@ -365,6 +349,12 @@ const goHome = () => {
   line-height: 1.6;
 }
 
+.care-warning, .safety-notes { margin: 0 20px 20px; padding: 15px; border-radius: 10px; line-height: 1.6; }
+.care-warning { background: #fff1f0; color: #9f2d25; border: 1px solid #ffccc7; }
+.care-warning p { margin: 5px 0 0; font-size: 14px; }
+.safety-notes { background: #fffbe6; color: #6f5500; }
+.safety-notes ul { margin: 8px 0 0 20px; }
+
 .equipment {
   padding: 0 20px 20px;
 }
@@ -491,6 +481,8 @@ const goHome = () => {
   color: #666;
   line-height: 1.5;
 }
+
+.exercise-reason { margin: -4px 0 12px; padding: 10px; border-radius: 8px; background: #f4f6ff; color: #4d5c97; font-size: 13px; line-height: 1.5; }
 
 .exercise-params {
   display: flex;

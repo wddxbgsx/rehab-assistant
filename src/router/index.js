@@ -20,6 +20,16 @@ const routes = [
     path: '/feedback',
     name: 'Feedback',
     component: () => import('../views/Feedback.vue')
+  },
+  {
+    path: '/account',
+    name: 'Account',
+    component: () => import('../views/Account.vue')
+  },
+  {
+    path: '/plans',
+    name: 'PlanHistory',
+    component: () => import('../views/PlanHistory.vue')
   }
 ]
 

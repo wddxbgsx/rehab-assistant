@@ -149,6 +149,24 @@
           </label>
         </div>
       </div>
+
+      <div class="form-group">
+        <label for="additionalInfo">其他情况 <span class="optional">（可选）</span></label>
+        <textarea
+          id="additionalInfo"
+          v-model.trim="form.additionalInfo"
+          maxlength="800"
+          rows="5"
+          class="additional-input"
+          placeholder="例如：哪些动作会加重疼痛、活动受限情况、既往病史、可用器材、每天可训练时间等"
+        ></textarea>
+        <div class="input-help">这些信息将帮助 AI 从动作库中更准确地选择动作。请勿填写姓名、电话等隐私信息。{{ form.additionalInfo.length }}/800</div>
+      </div>
+
+      <div class="save-notice">
+        <strong>计划保存说明</strong>
+        <p>登录用户的计划会保存到“我的计划”；游客可以正常生成，但本次计划不会存入云端，下次需重新评估。</p>
+      </div>
     </div>
 
     <!-- 导航按钮 -->
@@ -191,7 +209,8 @@ const form = ref({
   painLevel: null,
   duration: '',
   diagnosed: null,
-  habits: []
+  habits: [],
+  additionalInfo: ''
 })
 
 const ageGroups = [
@@ -270,6 +289,7 @@ const prevStep = () => {
 const generatePlan = () => {
   if (canProceed.value) {
     // 保存表单数据到 localStorage
+    sessionStorage.removeItem('guestPlan')
     localStorage.setItem('userProfile', JSON.stringify(form.value))
     router.push('/plan')
   }
@@ -282,6 +302,13 @@ const generatePlan = () => {
   padding: 20px;
   background: #f5f7fa;
 }
+
+.optional { color: #888; font-weight: 400; }
+.additional-input { width: 100%; padding: 14px; border: 2px solid #e0e0e0; border-radius: 10px; font: inherit; resize: vertical; }
+.additional-input:focus { outline: none; border-color: #667eea; }
+.input-help { color: #888; font-size: 12px; line-height: 1.5; margin-top: 7px; }
+.save-notice { max-width: 500px; margin: 8px auto 22px; padding: 14px; border-radius: 10px; background: #eef8ff; color: #35536b; }
+.save-notice p { margin: 5px 0 0; font-size: 13px; line-height: 1.6; }
 
 .progress-bar {
   height: 6px;
